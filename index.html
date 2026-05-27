@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KI Führerschein</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07101f;--text:#c8dff8;--muted:rgba(150,190,240,0.4)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Syne',sans-serif;color:var(--text);overflow:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 30% 20%,rgba(30,80,200,.12) 0%,transparent 70%),
+             radial-gradient(ellipse 50% 40% at 70% 80%,rgba(0,160,100,.07) 0%,transparent 70%)}
+
+#stars{position:fixed;inset:0;pointer-events:none}
+.s{position:absolute;border-radius:50%;background:#fff;opacity:var(--o);animation:tw var(--d) ease-in-out infinite alternate}
+@keyframes tw{to{opacity:calc(var(--o)*.08)}}
+
+.pagetitle{font-size:clamp(.6rem,1.2vw,.78rem);letter-spacing:.42em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:1.4rem;animation:fi 1.2s .3s both}
+@keyframes fi{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+#wrap{position:relative;width:min(660px,92vmin);aspect-ratio:1}
+svg#w{width:100%;height:100%;overflow:visible}
+
+/* ── Wheel hidden until revealed ── */
+#wheel-content{opacity:0;transition:opacity .0s}
+#wheel-content.revealed{opacity:1}
+
+/* ── Segments ── */
+.seg{cursor:pointer;transition:opacity .35s,filter .25s}
+.seg.dim{opacity:.07}
+.seg.hi{opacity:1;filter:brightness(1.25) saturate(1.1)}
+.seg.zone-hi{opacity:1;filter:brightness(1.3) saturate(1.15)}
+.seg.seg-hover{opacity:1;filter:brightness(1.6) saturate(1.3) drop-shadow(0 0 10px rgba(255,255,255,.4))}
+
+.snum{font-family:'JetBrains Mono',monospace;font-size:9px;fill:rgba(255,255,255,.5);
+  pointer-events:none;transition:opacity .35s}
+.snum.dim{opacity:.05}
+
+/* ── Curved outer labels ── */
+.olabel{font-family:'Syne',sans-serif;font-size:10.5px;font-weight:700;
+  fill:rgba(255,255,255,.72);letter-spacing:.15em;
+  pointer-events:none;transition:opacity .35s,filter .3s}
+.olabel.dim{opacity:.04}
+.olabel.zone-bold{fill:#fff;filter:drop-shadow(0 0 6px rgba(255,255,255,.9)) drop-shadow(0 0 12px rgba(255,255,255,.4))}
+
+/* ── Zone A/B/C ── */
+.zbtn{cursor:pointer}
+.zletter{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;
+  fill:rgba(255,255,255,.95);pointer-events:none;text-anchor:middle;dominant-baseline:central}
+.zfill{transition:filter .25s}
+
+/* ── Sweep arc ── */
+.sweep-arc{fill:none;pointer-events:none;stroke-linecap:round}
+
+/* ── Segment hover info ── */
+#slb{position:fixed;pointer-events:none;opacity:0;
+  transition:opacity .18s,transform .18s;transform:translateX(8px);z-index:100;
+  background:rgba(7,16,31,.96);border:1px solid rgba(60,130,255,.3);
+  border-radius:12px;padding:13px 17px;max-width:220px;
+  backdrop-filter:blur(14px);box-shadow:0 10px 40px rgba(0,0,0,.55)}
+#slb.show{opacity:1;transform:translateX(0)}
+.slb-cat{font-size:8px;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(80,180,255,.7);margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+.slb-title{font-size:15px;font-weight:800;color:#fff;margin-bottom:3px}
+.slb-desc{font-size:10.5px;color:rgba(170,205,255,.65);line-height:1.6}
+.slb-bar{height:2px;border-radius:1px;margin-top:8px;opacity:.5}
+
+/* ── Center start button ── */
+#center-start{cursor:pointer;transition:transform .3s}
+#cs-ring1{transform-origin:300px 300px;transform-box:fill-box}
+#cs-ring2{transform-origin:300px 300px;transform-box:fill-box}
+#cs-outline{transform-origin:300px 300px;transform-box:fill-box}
+
+/* pulsing green outline on hover */
+#center-start:hover #cs-outline{animation:outlinePulse 1.2s ease-in-out infinite}
+@keyframes outlinePulse{
+  0%,100%{stroke:rgba(60,220,120,.5);stroke-width:2;opacity:.8}
+  50%{stroke:rgba(80,255,140,.9);stroke-width:3.5;opacity:1;filter:drop-shadow(0 0 8px rgba(60,255,120,.8))}
+}
+
+/* shrink then wheel builds — REMOVED: button stays in place, does loading anim */
+@keyframes loadingRing{
+  from{stroke-dashoffset:565}
+  to{stroke-dashoffset:0}
+}
+@keyframes loadingFade{
+  0%,85%{opacity:1}
+  100%{opacity:0}
+}
+#cs-loading{display:none}
+#center-start.loading #cs-loading{display:block}
+#center-start.loading #cs-outline{animation:none;stroke:rgba(60,220,120,.25)}
+#center-start.loading #cs-loadring{animation:loadingRing 1.4s cubic-bezier(.4,0,.2,1) forwards}
+#center-start.loading #cs-pct{animation:countUp 1.4s ease-out forwards}
+#center-start.loading #cs-txt1,
+#center-start.loading #cs-txt2{opacity:.25}
+
+/* segment scale-in */
+@keyframes sIn{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:scale(1)}}
+.anim-in{animation:sIn .5s cubic-bezier(.34,1.45,.64,1) forwards;
+  transform-origin:300px 300px;transform-box:fill-box}
+
+/* pulse waves */
+@keyframes pw{from{r:55;opacity:.7;stroke-width:2.5}to{r:290;opacity:0;stroke-width:.3}}
+.pwave{fill:none;stroke:rgba(60,160,255,.5);animation:pw 1s ease-out forwards}
+
+/* detail overlay */
+#detail{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;pointer-events:none;opacity:0;z-index:50;
+  background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(10,20,40,.97) 0%,rgba(7,16,31,.99) 100%);
+  transition:opacity .5s ease}
+#detail.show{opacity:1;pointer-events:auto}
+#detail-title{font-size:clamp(.7rem,1.4vw,.88rem);letter-spacing:.36em;text-transform:uppercase;
+  color:rgba(150,190,240,.55);margin-bottom:1.6rem;
+  transform:translateY(-10px);opacity:0;transition:transform .6s,opacity .6s}
+#detail.show #detail-title{transform:none;opacity:1}
+#cards-wrap{display:flex;flex-direction:column;gap:10px;width:min(480px,90vw)}
+.dcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+  border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;
+  transform:translateY(30px) scale(.95);opacity:0;transition:background .25s,border-color .25s}
+.dcard:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.22)}
+.dcard.entering{animation:cardIn .5s cubic-bezier(.34,1.3,.64,1) forwards}
+@keyframes cardIn{to{transform:none;opacity:1}}
+.dcard-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:500;color:rgba(255,255,255,.9)}
+.dcard-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:3px}
+.dcard-desc{font-size:11px;color:rgba(180,210,255,.6);line-height:1.55}
+#back-btn{margin-top:1.4rem;font-family:'JetBrains Mono',monospace;font-size:10px;
+  letter-spacing:.22em;text-transform:uppercase;color:rgba(80,160,255,.65);
+  background:none;border:1px solid rgba(80,160,255,.3);border-radius:8px;
+  padding:8px 22px;cursor:pointer;
+  transform:translateY(10px);opacity:0;
+  transition:transform .6s .5s,opacity .6s .5s,background .2s,color .2s}
+#detail.show #back-btn{transform:none;opacity:1}
+#back-btn:hover{background:rgba(80,160,255,.12);color:#7ab0ff;border-color:rgba(80,160,255,.55)}
+
+/* persona */
+#persona-btn{position:fixed;top:20px;left:20px;width:52px;height:52px;cursor:pointer;
+  background:rgba(20,50,120,.55);border:2px solid rgba(80,160,255,.55);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,border-color .2s,transform .2s,box-shadow .2s;
+  z-index:300;opacity:0;box-shadow:0 0 16px rgba(40,120,255,.25)}
+#persona-btn.show{opacity:1;transition:opacity .5s,background .2s,border-color .2s,transform .2s,box-shadow .2s}
+#persona-btn:hover{background:rgba(30,70,160,.75);border-color:rgba(100,200,255,.9);transform:scale(1.1);box-shadow:0 0 24px rgba(60,160,255,.5)}
+#persona-btn svg{width:27px;height:27px}
+#persona-menu{position:fixed;top:74px;left:16px;display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;opacity:0;transition:opacity .3s,transform .3s;
+  transform:translateY(-8px);z-index:300}
+#persona-menu.open{opacity:1;pointer-events:auto;transform:none}
+.pmenu-item{display:flex;align-items:center;gap:10px;
+  background:rgba(10,20,40,.92);border:1px solid rgba(80,140,220,.2);
+  border-radius:10px;padding:10px 16px;cursor:pointer;white-space:nowrap;
+  transition:background .2s,border-color .2s;
+  transform:translateX(-10px);opacity:0}
+#persona-menu.open .pmenu-item{animation:slideIn .3s cubic-bezier(.34,1.3,.64,1) forwards}
+#persona-menu.open .pmenu-item:nth-child(1){animation-delay:.04s}
+#persona-menu.open .pmenu-item:nth-child(2){animation-delay:.1s}
+#persona-menu.open .pmenu-item:nth-child(3){animation-delay:.16s}
+@keyframes slideIn{to{transform:none;opacity:1}}
+.pmenu-item:hover{background:rgba(30,60,120,.5);border-color:rgba(80,180,255,.4)}
+.pmenu-item.active{border-color:rgba(80,180,255,.7);background:rgba(20,50,100,.5)}
+.pmenu-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pmenu-label{font-size:11.5px;font-weight:600;color:rgba(200,225,255,.88);letter-spacing:.03em}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div class="pagetitle">Lernpfad &middot; KI Kompetenz</div>
+
+<div id="persona-btn" title="Lernpfad wählen">
+  <svg viewBox="0 0 24 24" fill="none" stroke="rgba(140,200,255,.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="7" r="4"/>
+    <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>
+  </svg>
+</div>
+<div id="persona-menu">
+  <div class="pmenu-item" data-persona="student" onmouseenter="hoverPersona('student')" onmouseleave="unhoverPersona()" onclick="selectPersona('student')">
+    <div class="pmenu-dot" style="background:#3a96c2"></div>
+    <div class="pmenu-label">Auszubildende &amp; Studenten</div>
+  </div>
+  <div class="pmenu-item" data-persona="worker" onmouseenter="hoverPersona('worker')" onmouseleave="unhoverPersona()" onclick="selectPersona('worker')">
+    <div class="pmenu-dot" style="background:#5da800"></div>
+    <div class="pmenu-label">Arbeitnehmer</div>
+  </div>
+  <div class="pmenu-item" data-persona="leader" onmouseenter="hoverPersona('leader')" onmouseleave="unhoverPersona()" onclick="selectPersona('leader')">
+    <div class="pmenu-dot" style="background:#e06018"></div>
+    <div class="pmenu-label">Führungskraft</div>
+  </div>
+</div>
+
+<div id="wrap">
+<svg id="w" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgG" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0c1c36"/><stop offset="100%" stop-color="#060d1c"/>
+    </radialGradient>
+    <radialGradient id="cG" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#1a6ac0"/><stop offset="100%" stop-color="#021c40"/>
+    </radialGradient>
+    <radialGradient id="cGbig" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#1e78d8"/><stop offset="100%" stop-color="#031e45"/>
+    </radialGradient>
+    <filter id="sglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="cglow2" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sweepF" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle (always visible) -->
+  <circle cx="300" cy="300" r="285" fill="url(#bgG)"/>
+  <circle cx="300" cy="300" r="278" fill="none" stroke="rgba(60,130,255,.1)" stroke-width="12"/>
+  <circle cx="300" cy="300" r="279" fill="none" stroke="rgba(60,130,255,.22)" stroke-width=".8"/>
+  <circle cx="300" cy="300" r="272" fill="none" stroke="rgba(60,130,255,.08)" stroke-width=".6"/>
+
+  <!-- Pulse waves group -->
+  <g id="pg"></g>
+
+  <!-- Wheel content (hidden until reveal) -->
+  <g id="wheel-content">
+    <circle cx="300" cy="300" r="190" fill="none" stroke="rgba(60,130,255,.04)" stroke-width=".5"/>
+    <circle cx="300" cy="300" r="130" fill="none" stroke="rgba(60,130,255,.04)" stroke-width=".5"/>
+    <g id="sg"></g>
+    <g id="swg"></g>
+    <g id="tpg"></g>
+    <g id="zg"></g>
+    <!-- Small center after reveal -->
+    <g id="center-small">
+      <circle cx="300" cy="300" r="56" fill="url(#cG)" stroke="rgba(60,180,255,.45)" stroke-width="1.5"/>
+      <circle cx="300" cy="300" r="64" fill="none" stroke="rgba(60,160,255,.28)" stroke-width="1.4" stroke-dasharray="4 8"/>
+      <text x="300" y="294" font-family="'Syne',sans-serif" font-weight="800" font-size="12.5"
+        fill="white" text-anchor="middle" dominant-baseline="central" letter-spacing=".05em" pointer-events="none">KI</text>
+      <text x="300" y="310" font-family="'Syne',sans-serif" font-weight="700" font-size="11"
+        fill="rgba(255,255,255,.85)" text-anchor="middle" dominant-baseline="central" letter-spacing=".04em" pointer-events="none">Führerschein</text>
+      <text x="300" y="326" font-family="'JetBrains Mono',monospace" font-size="7"
+        fill="rgba(60,200,255,.6)" text-anchor="middle" dominant-baseline="central" letter-spacing=".14em" pointer-events="none">● AKTIV</text>
+    </g>
+  </g>
+
+  <!-- BIG start button (only on start screen) -->
+  <g id="center-start" onclick="doReveal()">
+    <circle id="cs-glow" cx="300" cy="300" r="115" fill="rgba(15,60,180,.18)" filter="url(#sglow)"/>
+    <!-- main fill -->
+    <circle cx="300" cy="300" r="92" fill="url(#cGbig)" stroke="rgba(40,140,255,.3)" stroke-width="1.5"/>
+    <!-- inner dashed ring -->
+    <circle cx="300" cy="300" r="98" fill="none" stroke="rgba(60,160,255,.15)" stroke-width="1" stroke-dasharray="4 8"/>
+    <!-- hover pulsing green outline -->
+    <circle id="cs-outline" cx="300" cy="300" r="105" fill="none"
+      stroke="rgba(60,220,120,.35)" stroke-width="1.8"/>
+    <!-- Loading ring (hidden until .loading) -->
+    <g id="cs-loading">
+      <!-- track -->
+      <circle cx="300" cy="300" r="90" fill="none" stroke="rgba(60,200,120,.15)" stroke-width="6"/>
+      <!-- progress arc: circumference of r=90 = 2π×90 ≈ 565 -->
+      <circle id="cs-loadring" cx="300" cy="300" r="90" fill="none"
+        stroke="rgba(60,230,130,.9)" stroke-width="6"
+        stroke-linecap="round"
+        stroke-dasharray="565" stroke-dashoffset="565"
+        transform="rotate(-90 300 300)"
+        style="filter:drop-shadow(0 0 6px rgba(60,255,130,.8))"/>
+      <!-- % counter text -->
+      <text id="cs-pct" x="300" y="304" font-family="'JetBrains Mono',monospace" font-weight="500"
+        font-size="22" fill="rgba(60,230,130,.95)" text-anchor="middle" dominant-baseline="central"
+        pointer-events="none">0%</text>
+    </g>
+    <!-- Normal label text -->
+    <text id="cs-txt1" x="300" y="286" font-family="'Syne',sans-serif" font-weight="800" font-size="16"
+      fill="white" text-anchor="middle" dominant-baseline="central" letter-spacing=".03em" pointer-events="none">KI Führerschein</text>
+    <text id="cs-txt2" x="300" y="312" font-family="'Syne',sans-serif" font-weight="600" font-size="13"
+      fill="rgba(100,200,255,.85)" text-anchor="middle" dominant-baseline="central" letter-spacing=".08em" pointer-events="none">starten !</text>
+  </g>
+</svg>
+</div>
+
+<div id="detail">
+  <div id="detail-title"></div>
+  <div id="cards-wrap"></div>
+  <button id="back-btn" onclick="closeDetail()">← Zurück</button>
+</div>
+
+<div id="slb">
+  <div class="slb-cat" id="slb-cat"></div>
+  <div class="slb-title" id="slb-title"></div>
+  <div class="slb-desc" id="slb-desc"></div>
+  <div class="slb-bar" id="slb-bar"></div>
+</div>
+
+<script>
+// ── Stars ────────────────────────────────────────────────────
+const stEl=document.getElementById('stars');
+for(let i=0;i<130;i++){
+  const s=document.createElement('div');s.className='s';
+  const sz=Math.random()*1.9+.3;
+  s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;`
+    +`--o:${(Math.random()*.45+.08).toFixed(2)};--d:${(Math.random()*4+2).toFixed(1)}s;`
+    +`animation-delay:${(Math.random()*6).toFixed(1)}s`;
+  stEl.appendChild(s);
+}
+
+// ── SVG constants ─────────────────────────────────────────────
+const NS='http://www.w3.org/2000/svg',CX=300,CY=300;
+const INNER_R=76, ZONE_R=102, OUTER_R=258, LABEL_R=274;
+
+// ── Persona segs ─────────────────────────────────────────────
+const PERSONA_SEGS={
+  student:new Set(['verstehen:1','verstehen:2','verstehen:3','verstehen:4','verstehen:5',
+    'bewerten:1','bewerten:2','bewerten:3','bewerten:4','bewerten:5','bewerten:6',
+    'anwenden:1','anwenden:2','anwenden:3','anwenden:4','anwenden:5',
+    'tools:1','tools:2','skills:1','skills:2']),
+  worker:new Set(['verstehen:1','verstehen:2','verstehen:3','verstehen:4','verstehen:5','verstehen:6',
+    'bewerten:1','bewerten:2','bewerten:3','bewerten:4','bewerten:5','bewerten:6',
+    'anwenden:1','anwenden:2','anwenden:3','anwenden:4','anwenden:5','anwenden:6',
+    'tools:1','tools:2','skills:1','skills:3','skills:4']),
+  leader:new Set(['verstehen:1','verstehen:2','verstehen:3','verstehen:4','verstehen:5','verstehen:6',
+    'bewerten:1','bewerten:2','bewerten:3','bewerten:4','bewerten:5','bewerten:6',
+    'anwenden:1','anwenden:2','anwenden:3','anwenden:4','anwenden:5','anwenden:6',
+    'tools:3','tools:4','skills:5','skills:6']),
+};
+
+// ── Data ─────────────────────────────────────────────────────
+// Angles:
+//   A: Verstehen -90→-18 (72°) + Bewerten -18→54 (72°)  = 144°
+//   B: Anwenden   54→126 (72°) + Tools1-2 126→150 (24°) = 96°
+//   C: Tools3-4  150→174 (24°) + Skills  174→270 (96°)  = 120°
+//   Total = 360°
+
+const CATS=[
+  {id:'verstehen',name:'Verstehen',zone:'A',col:'#0c3060',colL:'#1a4a80',a1:-90,sw:72,
+   subs:[{n:1,t:'KI-Grundlagen',d:'Was ist KI? Geschichte, Definitionen und Grundkonzepte.'},
+         {n:2,t:'Maschinelles Lernen',d:'Supervised, Unsupervised und Reinforcement Learning.'},
+         {n:3,t:'Neuronale Netze',d:'Aufbau und Funktionsweise tiefer neuronaler Netzwerke.'},
+         {n:4,t:'Sprachmodelle',d:'LLMs: GPT, Claude, Gemini – Funktionsweise und Unterschiede.'},
+         {n:5,t:'Computer Vision',d:'Bilderkennung, Objektdetektion und generative Bildmodelle.'},
+         {n:6,t:'Daten & Training',d:'Datensätze, Bias und Qualität beim KI-Training.'}]},
+  {id:'bewerten',name:'Bewerten',zone:'A',col:'#2a7faa',colL:'#3a96c2',a1:-18,sw:72,
+   subs:[{n:1,t:'KI-Kritik',d:'Chancen und Risiken von KI-Systemen kritisch einordnen.'},
+         {n:2,t:'Ethik & Fairness',d:'Diskriminierung, Transparenz und algorithmische Verantwortung.'},
+         {n:3,t:'Datenschutz',d:'DSGVO, Datensparsamkeit und Privatsphäre im KI-Zeitalter.'},
+         {n:4,t:'Fake & Deepfakes',d:'Desinformation erkennen und Deepfakes identifizieren.'},
+         {n:5,t:'Recht & Regulierung',d:'EU AI Act, Haftung und rechtlicher Rahmen für KI.'},
+         {n:6,t:'Nachhaltigkeit',d:'CO₂-Footprint und Ressourceneinsatz von KI.'}]},
+  {id:'anwenden',name:'Anwenden',zone:'B',col:'#4a8800',colL:'#5da800',a1:54,sw:72,
+   subs:[{n:1,t:'Prompting',d:'Effektive Prompts: Techniken, Strukturen und Best Practices.'},
+         {n:2,t:'Text & Content',d:'KI für Texterstellung, Zusammenfassungen und Übersetzungen.'},
+         {n:3,t:'Bildgenerierung',d:'Midjourney, DALL-E & Stable Diffusion gezielt einsetzen.'},
+         {n:4,t:'Automatisierung',d:'Workflows und Prozesse mit KI automatisieren.'},
+         {n:5,t:'Coding mit KI',d:'GitHub Copilot, Cursor und KI-gestütztes Programmieren.'},
+         {n:6,t:'Eigene Projekte',d:'Erste KI-Projekte planen, umsetzen und präsentieren.'}]},
+  // Tools 1+2 → Zone B
+  {id:'tools',name:'Tools',zone:'B',col:'#c85000',colL:'#e06018',a1:126,sw:24,
+   subs:[{n:1,t:'ChatGPT & Claude',d:'Einstieg und professionelle Nutzung der führenden KI-Assistenten.'},
+         {n:2,t:'Google & Microsoft',d:'Gemini in Workspace, Copilot in Office-Produkten.'}]},
+  // Tools 3+4 → Zone C
+  {id:'tools',name:'Tools',zone:'C',col:'#c85000',colL:'#e06018',a1:150,sw:24,
+   subs:[{n:3,t:'Bild & Kreativ',d:'Midjourney, Adobe Firefly und kreative KI-Tools im Vergleich.'},
+         {n:4,t:'No-Code & Automation',d:'Make, Zapier und No-Code-Automatisierung mit KI.'}]},
+  // Skills 6 → Zone C  (96° / 6 = 16° each)
+  {id:'skills',name:'Skills',zone:'C',col:'#a07a00',colL:'#c09500',a1:174,sw:96,
+   subs:[{n:1,t:'Kritisches Denken',d:'KI-Outputs kritisch hinterfragen und verifizieren.'},
+         {n:2,t:'Kreativität',d:'KI als kreativen Partner nutzen und eigene Ideen einbringen.'},
+         {n:3,t:'Kommunikation',d:'KI-Ergebnisse verständlich kommunizieren und präsentieren.'},
+         {n:4,t:'Datenverständnis',d:'Grundlegende Datenkompetenz für den KI-Einsatz.'},
+         {n:5,t:'Problemlösung',d:'Strukturierte Herangehensweise bei KI-gestützter Problemlösung.'},
+         {n:6,t:'Projektmanagement',d:'KI-Projekte planen, koordinieren und abschließen.'}]},
+];
+
+const ZONE_CFG={
+  A:{col:'#1a5080',a1:-90,a2:54},
+  B:{col:'#3a6010',a1:54, a2:150},
+  C:{col:'#806000',a1:150,a2:270},
+};
+
+// ── CRITICAL: Label definitions with CORRECT angles ──────────
+// Each label is placed on an arc at LABEL_R (just outside OUTER_R)
+// The textPath arc must span exactly the category's angular range
+// Tools: combined 126→174 (48°) so the word sits centered over both halves
+const LABEL_DEFS=[
+  {id:'verstehen',name:'Verstehen',a1:-90,sw:72},
+  {id:'bewerten', name:'Bewerten', a1:-18,sw:72},
+  {id:'anwenden', name:'Anwenden', a1:54, sw:72},
+  {id:'tools',    name:'Tools',    a1:126,sw:48},   // spans B+C tools portions
+  {id:'skills',   name:'Skills',   a1:174,sw:96},
+];
+
+// ── SVG helpers ───────────────────────────────────────────────
+function mk(tag,a={}){
+  const e=document.createElementNS(NS,tag);
+  for(const[k,v]of Object.entries(a))e.setAttribute(k,v);
+  return e;
+}
+function polar(r,deg){
+  const rad=(deg-90)*Math.PI/180;
+  return[CX+r*Math.cos(rad),CY+r*Math.sin(rad)];
+}
+function arcD(iR,oR,a1,a2){
+  const[ox1,oy1]=polar(oR,a1),[ox2,oy2]=polar(oR,a2);
+  const[ix1,iy1]=polar(iR,a2),[ix2,iy2]=polar(iR,a1);
+  const lg=(a2-a1)>180?1:0;
+  return `M${ox1},${oy1} A${oR},${oR} 0 ${lg} 1 ${ox2},${oy2} L${ix1},${iy1} A${iR},${iR} 0 ${lg} 0 ${ix2},${iy2} Z`;
+}
+// Open arc path for textPath / sweep — from a1 to a2
+function openArcD(r,a1,a2){
+  const[x1,y1]=polar(r,a1),[x2,y2]=polar(r,a2);
+  const lg=(a2-a1)>180?1:0;
+  return `M${x1},${y1} A${r},${r} 0 ${lg} 1 ${x2},${y2}`;
+}
+// Reversed arc (a2→a1) used for bottom-half labels so text reads left-to-right
+function openArcDRev(r,a1,a2){
+  const[x1,y1]=polar(r,a2),[x2,y2]=polar(r,a1);
+  const lg=(a2-a1)>180?1:0;
+  return `M${x1},${y1} A${r},${r} 0 ${lg} 0 ${x2},${y2}`;
+}
+
+const sg=document.getElementById('sg');
+const tpg=document.getElementById('tpg');
+const zg=document.getElementById('zg');
+const pg=document.getElementById('pg');
+const swg=document.getElementById('swg');
+let sweepState={};
+
+// ── Build wheel ───────────────────────────────────────────────
+function build(){
+  sg.innerHTML='';tpg.innerHTML='';zg.innerHTML='';swg.innerHTML='';
+  let tpid=0;
+
+  // ── Segments ──
+  CATS.forEach(cat=>{
+    const nSeg=cat.subs.length,segSw=cat.sw/nSeg;
+    cat.subs.forEach((sub,si)=>{
+      const a1=cat.a1+si*segSw,a2=a1+segSw,mid=(a1+a2)/2;
+      const shade=si%2===0?cat.col:cat.colL;
+      const path=mk('path',{
+        d:arcD(INNER_R+2,OUTER_R,a1,a2),fill:shade,
+        stroke:'rgba(7,16,31,.65)','stroke-width':'1.2',
+        class:'seg','data-cat':cat.id,'data-zone':cat.zone,
+        'data-n':sub.n,'data-key':cat.id+':'+sub.n,
+        'data-col':cat.colL,'data-name':cat.name,
+        'data-title':sub.t,'data-desc':sub.d,
+      });
+      path.addEventListener('mouseenter',e=>onSegEnter(e,path,cat,sub));
+      path.addEventListener('mousemove',e=>onSegMove(e));
+      path.addEventListener('mouseleave',onSegLeave);
+      path.addEventListener('click',()=>openDetailCat(cat.id));
+      sg.appendChild(path);
+
+      const[nx,ny]=polar(OUTER_R-17,mid);
+      const rb=mid-90,rot=(rb>90&&rb<270)?rb+180:rb;
+      const sn=mk('text',{x:nx,y:ny,class:'snum',
+        'data-cat':cat.id,'data-zone':cat.zone,'data-n':sub.n,
+        'text-anchor':'middle','dominant-baseline':'central',
+        transform:`rotate(${rot},${nx},${ny})`});
+      sn.textContent=sub.n;
+      sg.appendChild(sn);
+    });
+    [cat.a1,cat.a1+cat.sw].forEach(ang=>{
+      const[x1,y1]=polar(INNER_R+2,ang),[x2,y2]=polar(OUTER_R,ang);
+      sg.appendChild(mk('line',{x1,y1,x2,y2,stroke:'rgba(7,16,31,.85)','stroke-width':'2.2'}));
+    });
+  });
+
+  // ── Curved outer labels ──────────────────────────────────────
+  // Key fix: for each label, determine if it is in the bottom half.
+  // "Bottom half" means the midpoint angle (0=top, clockwise) is between 90° and 270°.
+  // For bottom half: reverse the arc so text flows left-to-right (not upside-down).
+  // We also push the label radius slightly further out so it doesn't collide with outer ring.
+
+  const LR = LABEL_R + 4; // 278 — just outside the outer ring at 258
+
+  LABEL_DEFS.forEach(ld=>{
+    const catMid = ld.a1 + ld.sw/2;
+    // Normalise to 0-360
+    const midNorm = ((catMid % 360) + 360) % 360;
+    // Bottom half = 90 < midNorm < 270
+    const isBottom = midNorm > 90 && midNorm < 270;
+
+    const pid='tp'+(tpid++);
+
+    // For bottom labels, draw arc reversed so textPath baseline faces outward
+    const pd = isBottom
+      ? openArcDRev(LR, ld.a1, ld.a1+ld.sw)
+      : openArcD(LR, ld.a1, ld.a1+ld.sw);
+
+    tpg.appendChild(mk('path',{id:pid,d:pd,fill:'none',stroke:'none'}));
+
+    const txt=mk('text',{class:'olabel','data-labelid':ld.id});
+    const ts=mk('textPath',{href:'#'+pid,startOffset:'50%','text-anchor':'middle'});
+    ts.textContent=ld.name.toUpperCase();
+    txt.appendChild(ts);
+    tpg.appendChild(txt);
+
+    // Hit area
+    const hit=mk('path',{
+      d:arcD(LR-16,LR+16,ld.a1,ld.a1+ld.sw),
+      fill:'transparent',stroke:'none',cursor:'pointer','data-labelid':ld.id});
+    tpg.appendChild(hit);
+
+    [txt,hit].forEach(el=>{
+      el.addEventListener('mouseenter',()=>{txt.classList.add('zone-bold');hlLabel(ld.id)});
+      el.addEventListener('mouseleave',()=>{txt.classList.remove('zone-bold');clearHL()});
+      el.addEventListener('click',()=>openDetailCat(ld.id));
+    });
+
+    // Small tick from outer ring to label
+    const[t1x,t1y]=polar(OUTER_R+3,catMid),[t2x,t2y]=polar(LR-6,catMid);
+    const catEntry=CATS.find(c=>c.id===ld.id)||CATS.find(c=>c.id==='tools');
+    tpg.appendChild(mk('line',{x1:t1x,y1:t1y,x2:t2x,y2:t2y,
+      stroke:catEntry.colL,'stroke-width':'1',opacity:'.4','data-labelid':ld.id}));
+  });
+
+  // ── Zone A/B/C inner arcs ──
+  Object.entries(ZONE_CFG).forEach(([zid,zone])=>{
+    const{a1,a2}=zone,mid=(a1+a2)/2;
+    const[zx,zy]=polar((INNER_R+ZONE_R)*.5,mid);
+    const g=mk('g',{class:'zbtn','data-zone':zid});
+    g.appendChild(mk('path',{d:arcD(INNER_R+2,ZONE_R,a1,a2),fill:zone.col,
+      stroke:'rgba(7,16,31,.7)','stroke-width':'1.5',class:'zfill'}));
+    g.appendChild(mk('circle',{cx:zx,cy:zy,r:'17',fill:zone.col,
+      stroke:'rgba(255,255,255,.22)','stroke-width':'1.3',filter:'url(#cglow2)'}));
+    const letter=mk('text',{x:zx,y:zy,class:'zletter'});
+    letter.textContent=zid;
+    g.appendChild(letter);
+    zg.appendChild(g);
+
+    // Sweep arc on outer border
+    const sweepPath=mk('path',{
+      d:openArcD(OUTER_R+2,a1,a2),
+      fill:'none',stroke:'rgba(255,255,255,0)','stroke-width':'4',
+      'stroke-linecap':'round',class:'sweep-arc','data-zone':zid,
+      filter:'url(#sweepF)'});
+    swg.appendChild(sweepPath);
+
+    g.addEventListener('mouseenter',()=>{hlZone(zid);startSweep(zid,a1,a2)});
+    g.addEventListener('mouseleave',()=>{clearHL();stopSweep(zid)});
+  });
+}
+
+// ── Bouncing sweep ────────────────────────────────────────────
+function startSweep(zid,a1,a2){
+  if(sweepState[zid]?.running)return;
+  const arcEl=swg.querySelector(`.sweep-arc[data-zone="${zid}"]`);
+  if(!arcEl)return;
+  const totalLen=arcEl.getTotalLength();
+  const shimW=totalLen*0.2;
+  let pos=0,dir=1;
+  sweepState[zid]={running:true,raf:null};
+  function frame(){
+    if(!sweepState[zid]?.running)return;
+    pos+=dir*5;
+    if(pos>=totalLen){pos=totalLen;dir=-1;}
+    if(pos<=0){pos=0;dir=1;}
+    const before=Math.max(0,pos-shimW/2);
+    arcEl.style.stroke='rgba(255,255,255,.95)';
+    arcEl.style.strokeDasharray=`${shimW} ${totalLen+shimW}`;
+    arcEl.style.strokeDashoffset=-before;
+    arcEl.style.filter='drop-shadow(0 0 5px rgba(200,230,255,.9)) drop-shadow(0 0 12px rgba(120,190,255,.7)) drop-shadow(0 0 20px rgba(80,160,255,.5))';
+    sweepState[zid].raf=requestAnimationFrame(frame);
+  }
+  sweepState[zid].raf=requestAnimationFrame(frame);
+}
+function stopSweep(zid){
+  if(sweepState[zid]){sweepState[zid].running=false;cancelAnimationFrame(sweepState[zid].raf);delete sweepState[zid];}
+  const arcEl=swg.querySelector(`.sweep-arc[data-zone="${zid}"]`);
+  if(arcEl){arcEl.style.stroke='rgba(255,255,255,0)';arcEl.style.strokeDasharray='';arcEl.style.strokeDashoffset='0';arcEl.style.filter='';}
+}
+
+// ── Highlight ────────────────────────────────────────────────
+function hlZone(zid){
+  document.querySelectorAll('.seg').forEach(p=>{
+    const inZ=p.dataset.zone===zid;
+    p.classList.toggle('zone-hi',inZ);p.classList.toggle('dim',!inZ);
+  });
+  document.querySelectorAll('.snum').forEach(n=>n.classList.toggle('dim',n.dataset.zone!==zid));
+  document.querySelectorAll('[data-labelid]').forEach(e=>{
+    if(!e.dataset.labelid)return;
+    const lid=e.dataset.labelid;
+    // zone A → verstehen+bewerten, B → anwenden+tools, C → tools+skills
+    const zoneLabels={A:['verstehen','bewerten'],B:['anwenden','tools'],C:['tools','skills']};
+    const inZ=zoneLabels[zid].includes(lid);
+    e.classList.toggle('dim',!inZ);
+    if(e.classList.contains('olabel'))e.classList.toggle('zone-bold',inZ);
+  });
+}
+function hlLabel(labelId){
+  document.querySelectorAll('.seg').forEach(p=>{
+    const m=p.dataset.cat===labelId;
+    p.classList.toggle('zone-hi',m);p.classList.toggle('dim',!m);
+  });
+  document.querySelectorAll('.snum').forEach(n=>n.classList.toggle('dim',n.dataset.cat!==labelId));
+}
+function hlPersona(key){
+  const segs=PERSONA_SEGS[key];
+  document.querySelectorAll('.seg').forEach(p=>{
+    const inP=segs.has(p.dataset.key);
+    p.classList.toggle('hi',inP);p.classList.toggle('dim',!inP);p.classList.remove('zone-hi');
+  });
+  document.querySelectorAll('.snum').forEach(n=>
+    n.classList.toggle('dim',!segs.has(n.dataset.cat+':'+n.dataset.n)));
+}
+function clearHL(){
+  document.querySelectorAll('.seg').forEach(p=>p.classList.remove('hi','dim','zone-hi'));
+  document.querySelectorAll('.snum').forEach(n=>n.classList.remove('dim'));
+  document.querySelectorAll('[data-labelid]').forEach(e=>e.classList.remove('dim','zone-bold'));
+  if(activePersona)hlPersona(activePersona);
+}
+
+// ── Segment hover ─────────────────────────────────────────────
+const slb=document.getElementById('slb');
+let slbOn=false;
+function onSegEnter(e,path,cat,sub){
+  path.classList.add('seg-hover');
+  document.getElementById('slb-cat').textContent=cat.zone+' · '+cat.name;
+  document.getElementById('slb-title').textContent=sub.t;
+  document.getElementById('slb-desc').textContent=sub.d;
+  document.getElementById('slb-bar').style.background=cat.colL;
+  slb.classList.add('show');slbOn=true;onSegMove(e);
+}
+function onSegMove(e){
+  if(!slbOn)return;
+  const x=e.clientX+20,y=e.clientY-20;
+  slb.style.left=(x+slb.offsetWidth>window.innerWidth?e.clientX-slb.offsetWidth-16:x)+'px';
+  slb.style.top=(y+slb.offsetHeight>window.innerHeight?e.clientY-slb.offsetHeight:y)+'px';
+}
+function onSegLeave(){
+  document.querySelectorAll('.seg.seg-hover').forEach(p=>p.classList.remove('seg-hover'));
+  slb.classList.remove('show');slbOn=false;
+}
+
+// ── Detail ────────────────────────────────────────────────────
+let inDetail=false;
+function openDetailCat(labelId){
+  if(inDetail||!revealed)return;inDetail=true;
+  const allSubs=[];let refCat=null;
+  CATS.forEach(cat=>{if(cat.id===labelId){if(!refCat)refCat=cat;allSubs.push(...cat.subs);}});
+  if(!refCat||!allSubs.length){inDetail=false;return;}
+  const wr=document.getElementById('wrap');
+  wr.style.transition='transform .65s ease,opacity .6s ease';
+  wr.style.transform='scale(.1) translateY(160%)';wr.style.opacity='0';wr.style.pointerEvents='none';
+  const cw=document.getElementById('cards-wrap');cw.innerHTML='';
+  document.getElementById('detail-title').textContent=refCat.name.toUpperCase()+' — Lernbereich '+refCat.zone;
+  allSubs.forEach((sub,i)=>{
+    const card=document.createElement('div');card.className='dcard';
+    card.innerHTML=`<div class="dcard-num" style="background:${refCat.col};border:1px solid ${refCat.colL}">${sub.n}</div><div><div class="dcard-title">${sub.t}</div><div class="dcard-desc">${sub.d}</div></div>`;
+    card.style.animationDelay=(i*75)+'ms';cw.appendChild(card);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>card.classList.add('entering')));
+  });
+  document.getElementById('detail').classList.add('show');
+}
+function closeDetail(){
+  if(!inDetail)return;inDetail=false;
+  document.getElementById('detail').classList.remove('show');
+  const w=document.getElementById('wrap');
+  w.style.transition='transform .75s cubic-bezier(.34,1.3,.64,1),opacity .65s ease';
+  w.style.transform='';w.style.opacity='';w.style.pointerEvents='';
+  setTimeout(()=>w.style.transition='',800);clearHL();
+}
+
+// ── Reveal sequence ───────────────────────────────────────────
+let revealed=false;
+function doReveal(){
+  if(revealed)return;revealed=true;
+
+  const btnEl=document.getElementById('center-start');
+
+  // Disable pointer events immediately
+  btnEl.style.pointerEvents='none';
+
+  // 1. Switch to loading state (ring fills up + counter)
+  btnEl.classList.add('loading');
+
+  // Animate the % counter in JS (0 → 100 over 1400ms)
+  const pctEl=document.getElementById('cs-pct');
+  const startTime=performance.now();
+  const duration=1400;
+  function tickPct(now){
+    const pct=Math.min(100,Math.round((now-startTime)/duration*100));
+    pctEl.textContent=pct+'%';
+    if(pct<100) requestAnimationFrame(tickPct);
+  }
+  requestAnimationFrame(tickPct);
+
+  // 2. After loading completes (1500ms): fade out button, build wheel
+  setTimeout(()=>{
+    // Fade out start button
+    btnEl.style.transition='opacity .4s ease';
+    btnEl.style.opacity='0';
+
+    setTimeout(()=>{
+      btnEl.style.display='none';
+
+      // Pulse waves from center
+      for(let i=0;i<3;i++) setTimeout(()=>{
+        const c=mk('circle',{cx:300,cy:300,r:55,class:'pwave'});
+        pg.appendChild(c);setTimeout(()=>c.remove(),1050);
+      },i*160);
+
+      // Show wheel content
+      const wc=document.getElementById('wheel-content');
+      wc.style.opacity='0';
+      build();
+      document.querySelectorAll('.seg,.snum,.olabel').forEach(e=>e.style.opacity='0');
+
+      requestAnimationFrame(()=>{
+        wc.style.transition='opacity .4s ease';
+        wc.style.opacity='1';
+      });
+
+      // Stagger-reveal segments A → B → C
+      const segs=[...document.querySelectorAll('.seg')];
+      const nums=[...document.querySelectorAll('.snum')];
+      let delay=250;
+      ['A','B','C'].forEach(zid=>{
+        const zSegs=segs.filter(s=>s.dataset.zone===zid);
+        zSegs.forEach((s,i)=>setTimeout(()=>{
+          s.classList.add('anim-in');s.style.opacity='';
+          s.addEventListener('animationend',()=>s.classList.remove('anim-in'),{once:true});
+        },delay+i*40));
+        delay+=zSegs.length*40+110;
+      });
+
+      // Numbers + labels
+      setTimeout(()=>{
+        nums.forEach((n,i)=>setTimeout(()=>n.style.opacity='',i*12));
+        document.querySelectorAll('.olabel').forEach((l,i)=>{
+          l.style.opacity='0';
+          setTimeout(()=>{l.style.transition='opacity .7s ease';l.style.opacity='';},100+i*100);
+        });
+        document.getElementById('persona-btn').classList.add('show');
+      },800);
+
+    },400);
+  },1500);
+}
+
+// ── Persona ───────────────────────────────────────────────────
+let menuOpen=false,activePersona=null;
+document.getElementById('persona-btn').addEventListener('click',e=>{
+  e.stopPropagation();menuOpen=!menuOpen;
+  document.getElementById('persona-menu').classList.toggle('open',menuOpen);
+});
+document.addEventListener('click',()=>{
+  menuOpen=false;document.getElementById('persona-menu').classList.remove('open');
+});
+function hoverPersona(key){hlPersona(key);}
+function unhoverPersona(){if(activePersona)hlPersona(activePersona);else clearHL();}
+function selectPersona(key){
+  document.querySelectorAll('.pmenu-item').forEach(el=>el.classList.toggle('active',el.dataset.persona===key));
+  activePersona=activePersona===key?null:key;
+  if(activePersona)hlPersona(activePersona);else clearHL();
+  menuOpen=false;document.getElementById('persona-menu').classList.remove('open');
+}
+</script>
+</body>
+</html>
